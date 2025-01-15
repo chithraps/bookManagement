@@ -8,10 +8,11 @@ export async function PUT(request, { params }) {
   
     try {
       const body = await request.json();
-      const { title, author, isbn } = body;
+      const { title, author, isbn,description,
+        publicationYear, } = body;
       console.log("title ",title) 
   
-      if (!title || !author || !isbn) {
+      if (!title || !author || !isbn ||!description ||!publicationYear) {
         return new Response(
           JSON.stringify({ error: "All fields are required: title, author, description, image_url" }),
           { status: 400, headers: { "Content-Type": "application/json" } }
@@ -24,7 +25,7 @@ export async function PUT(request, { params }) {
       // Update MongoDB
       const mongoResult = await Book.updateOne(
         { _id: id },
-        { $set: { title, author, isbn } }
+        { $set: { title, author, isbn ,description,publicationYear} }
       );
       if (!mongoResult.matchedCount) {
         return new Response(JSON.stringify({ error: "Book not found in MongoDB" }), {
@@ -41,7 +42,9 @@ export async function PUT(request, { params }) {
           doc: { 
             title, 
             author, 
-            isbn 
+            isbn ,
+            description,
+            publicationYear
           }
         }
       });

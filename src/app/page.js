@@ -30,18 +30,14 @@ export default function Home() {
   const handleAddBook = () => {
     router.push("/addBooks");
   };
-  const handleUpdateBook = (id) => {
-    console.log("fgsdfgsdh id is ",id)
-    router.push(`/updateBook/${id}`);
+  const handleSearch = () => {
+    router.push("/search"); 
   };
-  const handleDeleteBook = async (id) => {
-    try {
-      await axios.delete(`/api/books/${id}/delete`);
-      setBooks((prevBooks) => prevBooks.filter((book) => book._id !== id));
-    } catch (error) {
-      console.error("Error deleting book:", error);
-    }
+  const handleFetchBook = (id) => {   
+     console.log("id is ",id)
+    router.push(`/fetchBook/${id}`);
   };
+  
 
   const handleNextPage = () => {
     if (currentPage < totalPages) setCurrentPage((prev) => prev + 1);
@@ -53,7 +49,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header onAddBook={handleAddBook} />
+      <Header onAddBook={handleAddBook} onSearchBook={handleSearch}/>
       <div className="p-8">
         {books.length === 0 ? (
           <p className="text-center text-gray-500 text-lg">
@@ -68,21 +64,9 @@ export default function Home() {
                     src={book.image_url || "/default-book.png"}
                     alt={book.title}
                     className="h-48 w-32 object-cover mb-1 mx-auto"
+                    onClick={()=>{handleFetchBook(book._id)}}
                   />
-                  <div className="flex justify-around mt-2">
-                    <button
-                      onClick={() => handleUpdateBook(book._id)}
-                      className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
-                    >
-                      Update
-                    </button>
-                    <button
-                      onClick={() => handleDeleteBook(book._id)}
-                      className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600"
-                    >
-                      Delete
-                    </button>
-                  </div>
+                  
                 </div>
               ))}
             </div>

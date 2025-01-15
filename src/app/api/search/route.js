@@ -18,7 +18,7 @@ export async function GET(request) {
             query: {
               multi_match: {
                 query,
-                fields: ["title", "author", "description"],
+                fields: ["title", "author", "publicationYear", "isbn"],
               },
             },
           },
