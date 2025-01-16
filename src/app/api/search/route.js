@@ -10,15 +10,26 @@ export async function GET(request) {
     
         const from = (page - 1) * limit;
     
+        const shouldQueries = [
+          { match: { title: query } },    
+          { match: { author: query } },   
+          { match: { isbn: query } },     
+        ];
+    
+        
+        if (!isNaN(query)) {
+          shouldQueries.push({ term: { publicationYear: parseInt(query) } });
+        }
+    
         const { body } = await client.search({
           index: "books",
           body: {
             from,
             size: limit,
             query: {
-              multi_match: {
-                query,
-                fields: ["title", "author", "publicationYear", "isbn"],
+              bool: {
+                should: shouldQueries,
+                minimum_should_match: 1,
               },
             },
           },
