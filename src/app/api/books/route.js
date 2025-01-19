@@ -1,21 +1,40 @@
 import { connect } from "@/dbConfig/dbConfig";
 import Book from "@/models/book";
-import path from "path";
 import client from "@/openSearchClient/opensearchClient";
-import { writeFile } from "fs/promises";
-import { mkdir } from "fs/promises";
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+} from "@aws-sdk/client-s3";
 
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+
+const s3 = new S3Client({
+  region: process.env.S3_BUCKET_REGION,
+  credentials: {
+    accessKeyId: process.env.S3_ACCESS_KEY,
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+  },
+});
+async function generatePresignedUrl(bucketName, s3Key) {
+  const command = new GetObjectCommand({
+    Bucket: bucketName,
+    Key: s3Key,
+  });
+
+  return await getSignedUrl(s3, command, { expiresIn: 3600 }); // Expires in 1 hour
+}
 export async function GET(request) {
   try {
     await connect();
     const url = new URL(request.url);
-    const page = parseInt(url.searchParams.get("page")) || 1; 
-    const limit = parseInt(url.searchParams.get("limit")) || 10; 
+    const page = parseInt(url.searchParams.get("page")) || 1;
+    const limit = parseInt(url.searchParams.get("limit")) || 10;
 
     const from = (page - 1) * limit;
-    console.log("I am in post")    
-     // Fetch books from OpenSearch
-     const { body } = await client.search({
+    console.log("I am in post");
+    // Fetch books from OpenSearch
+    const { body } = await client.search({
       index: "books",
       body: {
         from,
@@ -26,12 +45,18 @@ export async function GET(request) {
       },
     });
 
-    
-    const books = body.hits.hits.map(hit => ({
-      ...hit._source,
-      _id: hit._id,  
-    }));
-    console.log("books ",books)
+    const bucketName = "bookfilestorage";
+
+    const books = await Promise.all(
+      body.hits.hits.map(async (hit) => {
+        const book = { ...hit._source, _id: hit._id };
+        const imageUrl = await generatePresignedUrl(bucketName, book.image_url);
+        book.image_url = imageUrl;
+
+        return book;
+      })
+    );
+    console.log("books ", books);
     return new Response(
       JSON.stringify({
         books,
@@ -73,19 +98,20 @@ export async function POST(request) {
     }
 
     const buffer = Buffer.from(await imageFile.arrayBuffer());
-    const filename = Date.now() + imageFile.name.replaceAll(" ", "_"); 
+    const filename = Date.now() + imageFile.name.replaceAll(" ", "_");
     console.log(filename);
 
-    const uploadDir = path.join(process.cwd(), "public/uploads");
-    
-    await mkdir(uploadDir, { recursive: true });
+    const bucketName = "bookfilestorage";
+    const s3Key = `books/${filename}`;
+    console.log("s3Key ", s3Key);
+    const uploadParams = {
+      Bucket: bucketName,
+      Key: s3Key,
+      Body: buffer,
+      ContentType: imageFile.type,
+    };
 
-    // Write the image file to the disk
-    await writeFile(path.join(uploadDir, filename), buffer);
-
-    // Save the image path (relative path) to the database
-    const imagePath = `/uploads/${filename}`;
-    console.log(imagePath)
+    await s3.send(new PutObjectCommand(uploadParams));
 
     const newBook = new Book({
       title,
@@ -93,22 +119,22 @@ export async function POST(request) {
       publicationYear,
       isbn,
       description,
-      image_url : imagePath,
+      image_url: s3Key,
     });
 
     await newBook.save();
     await client.index({
-      index : "books",
-      id : newBook._id.toString(),
-      body:{
+      index: "books",
+      id: newBook._id.toString(),
+      body: {
         title,
         author,
         publicationYear,
         isbn,
         description,
-        image_url: imagePath,
-      }
-    })
+        image_url: s3Key,
+      },
+    });
     return new Response(JSON.stringify(newBook), {
       status: 201,
       headers: { "Content-Type": "application/json" },

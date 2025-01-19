@@ -1,6 +1,24 @@
 import { connect } from "@/dbConfig/dbConfig";
 import Book from "@/models/book";
 import client from "@/openSearchClient/opensearchClient";
+import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+
+const s3 = new S3Client({
+  region: process.env.S3_BUCKET_REGION,
+  credentials: {
+    accessKeyId: process.env.S3_ACCESS_KEY,
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+  },
+});
+
+async function generatePresignedUrl(bucketName, s3Key) {
+  const command = new GetObjectCommand({
+    Bucket: bucketName,
+    Key: s3Key,
+  });  
+  return await getSignedUrl(s3, command, { expiresIn: 3600 });
+}
 
 export async function GET(request, { params }) {
     const { id } = await params;
@@ -22,10 +40,12 @@ export async function GET(request, { params }) {
         });
       }
 
-      const book = {
-        ...body._source,
-        _id: body._id,
-      };
+      const book = { ...body._source, _id: body._id };
+
+      
+      const bucketName = "bookfilestorage";
+      const imageUrl = await generatePresignedUrl(bucketName, book.image_url);      
+      book.image_url = imageUrl;      
       console.log("book ",book)
       return new Response(JSON.stringify({ book }), {
         status: 200,
