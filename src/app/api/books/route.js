@@ -112,7 +112,7 @@ export async function POST(request) {
     };
 
     await s3.send(new PutObjectCommand(uploadParams));
-
+    console.log("images are stored in s3")
     const newBook = new Book({
       title,
       author,
@@ -123,6 +123,7 @@ export async function POST(request) {
     });
 
     await newBook.save();
+    console.log("book details saved")
     await client.index({
       index: "books",
       id: newBook._id.toString(),
@@ -135,12 +136,13 @@ export async function POST(request) {
         image_url: s3Key,
       },
     });
+    console.log("saved in opensearch")
     return new Response(JSON.stringify(newBook), {
       status: 201,
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
-    return new Response(JSON.stringify({ error: "Failed to add the book" }), {
+    return new Response(JSON.stringify({ error: error ||"Failed to add the book"}), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });

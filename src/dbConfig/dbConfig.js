@@ -2,9 +2,7 @@ import mongoose from "mongoose";
 
 export async function connect() {
   try {
-    mongoose.connect(process.env.CONNECTION_STRING, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+    mongoose.connect(process.env.CONNECTION_STRING, {      
       dbName: "book_collections",
     });
     console.log("Dtabase connection is ready !!!");
